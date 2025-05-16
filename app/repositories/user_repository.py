@@ -16,33 +16,33 @@ class UserRepository:
             db (AsyncIOMotorDatabase): MongoDB database connection
         """
         self.db = db
-        self.user_collection = db.users
+        self.collection_name = "users"
 
     async def get_by_email(self, email: str) -> Optional[UserInDB]:
         """Get user by email address"""
-        user = await self.user_collection.find_one({"email": email})
+        user = await self.db[self.collection_name].find_one({"email": email})
         if user:
             return UserInDB(**user)
         return None
 
-    async def create(self, user: UserCreate) -> UserInDB:
-        """Create a new user"""
-        user_dict = user.dict(exclude={'password', 'confirm_password'})
-        user_dict.update({
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-            "failed_login_attempts": 0,
-            "is_email_verified": False,
-            "preferences": {}
-        })
+    async def create(self, user_data: UserInDB) -> UserInDB:
+        """
+        Create a new user
         
-        result = await self.user_collection.insert_one(user_dict)
-        user_dict["_id"] = result.inserted_id
+        Args:
+            user_data (UserInDB): User data model
+            
+        Returns:
+            UserInDB: Created user
+        """
+        user_dict = user_data.model_dump(exclude={'id'}, by_alias=True)
+        result = await self.db[self.collection_name].insert_one(user_dict)
+        user_dict["_id"] = str(result.inserted_id)
         return UserInDB(**user_dict)
 
     async def get_by_id(self, user_id: str) -> Optional[UserInDB]:
         """Get user by ID"""
-        user = await self.user_collection.find_one({"_id": ObjectId(user_id)})
+        user = await self.db[self.collection_name].find_one({"_id": ObjectId(user_id)})
         if user:
             return UserInDB(**user)
         return None
@@ -51,7 +51,7 @@ class UserRepository:
         """Update user information"""
         update_data["updated_at"] = datetime.utcnow()
         
-        result = await self.user_collection.update_one(
+        result = await self.db[self.collection_name].update_one(
             {"_id": ObjectId(user_id)},
             {"$set": update_data}
         )
@@ -73,7 +73,7 @@ class UserRepository:
         else:
             update_data["$inc"] = {"failed_login_attempts": 1}
         
-        result = await self.user_collection.update_one(
+        result = await self.db[self.collection_name].update_one(
             {"_id": ObjectId(user_id)},
             {"$set": update_data} if success else update_data
         )
@@ -83,7 +83,7 @@ class UserRepository:
 
     async def verify_email(self, user_id: str) -> Optional[UserInDB]:
         """Mark user's email as verified"""
-        result = await self.user_collection.update_one(
+        result = await self.db[self.collection_name].update_one(
             {"_id": ObjectId(user_id)},
             {
                 "$set": {
@@ -98,7 +98,7 @@ class UserRepository:
 
     async def update_preferences(self, user_id: str, preferences: Dict) -> Optional[UserInDB]:
         """Update user preferences"""
-        result = await self.user_collection.update_one(
+        result = await self.db[self.collection_name].update_one(
             {"_id": ObjectId(user_id)},
             {
                 "$set": {

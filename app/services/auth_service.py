@@ -4,7 +4,7 @@ import logging
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from ..models.user import User, UserCreate
+from ..models.user import User, UserCreate, UserInDB
 from ..repositories import UserRepository
 from ..core.security import verify_password, get_password_hash, create_access_token
 from ..core.exceptions import AuthenticationError, ValidationError, DatabaseError
@@ -40,15 +40,24 @@ class AuthService:
 
             # Create new user
             hashed_password = get_password_hash(user_data.password)
-            user_dict = user_data.model_dump()
-            user_dict["password"] = hashed_password
-            user_dict["is_active"] = True
-            user_dict["is_verified"] = False
+            user_in_db = UserInDB(
+                full_name=user_data.full_name,
+                email=user_data.email,
+                hashed_password=hashed_password,
+                phone_number=user_data.phone_number,
+                is_active=True,
+                is_email_verified=False,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                failed_login_attempts=0,
+                preferences={}
+            )
 
-            user = await self.user_repository.create(user_dict)
-            return User(**user)
+            created_user = await self.user_repository.create(user_in_db)
+            user_model = User(**created_user.model_dump())
+            return user_model
 
-        except ValidationError:
+        except ValidationError: 
             raise
         except Exception as e:
             raise DatabaseError(f"Failed to register user: {str(e)}")
@@ -81,10 +90,10 @@ class AuthService:
                 raise AuthenticationError("User account is inactive")
 
             # Create access token
-            access_token_expires = timedelta(minutes=ctx.settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token_expires = timedelta(minutes=ctx.settings["ACCESS_TOKEN_EXPIRE_MINUTES"])
             access_token = create_access_token(
                 data={"sub": str(user["_id"])},
-                secret_key=ctx.settings.SECRET_KEY,
+                secret_key=ctx.settings["SECRET_KEY"],
                 expires_delta=access_token_expires
             )
 
@@ -119,10 +128,10 @@ class AuthService:
                 raise AuthenticationError("User account is inactive")
 
             # Create new access token
-            access_token_expires = timedelta(minutes=ctx.settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token_expires = timedelta(minutes=ctx.settings["ACCESS_TOKEN_EXPIRE_MINUTES"])
             access_token = create_access_token(
                 data={"sub": str(user["_id"])},
-                secret_key=ctx.settings.SECRET_KEY,
+                secret_key=ctx.settings["SECRET_KEY"],
                 expires_delta=access_token_expires
             )
 
@@ -131,4 +140,4 @@ class AuthService:
         except AuthenticationError:
             raise
         except Exception as e:
-            raise DatabaseError(f"Token refresh failed: {str(e)}") 
+            raise DatabaseError(f"Token refresh failed: {str(e)}")

@@ -75,7 +75,7 @@ class UserCreate(UserBase):
 
 class UserInDB(UserBase):
     """Model for user data in database"""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     hashed_password: str = Field(..., description="Hashed password")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Account creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Last update timestamp")

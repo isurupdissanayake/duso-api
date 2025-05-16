@@ -4,7 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from ..models.user import User, UserCreate
 from ..services.auth_service import AuthService
 from ..core.exceptions import AuthenticationError, ValidationError, DatabaseError
-from ..dependencies import get_auth_service, get_app_context
+from ..dependencies import get_auth_service, get_app_context, get_app_config_context
+from ..context.app_context import AppContext
 from ..context.app_context import AppContext
 
 router = APIRouter(
@@ -16,7 +17,7 @@ router = APIRouter(
 async def signup(
     user_data: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
-    ctx: AppContext = Depends(get_app_context)
+    ctx: AppContext = Depends(get_app_config_context)
 ) -> User:
     """
     Register a new user
@@ -49,7 +50,7 @@ async def signup(
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
-    ctx: AppContext = Depends(get_app_context),
+    ctx: AppContext = Depends(get_app_config_context),
     response: Response = None
 ) -> dict:
     """
@@ -79,9 +80,9 @@ async def login(
             key="access_token",
             value=f"Bearer {access_token}",
             httponly=True,
-            secure=ctx.settings.COOKIE_SECURE,
-            samesite=ctx.settings.COOKIE_SAMESITE,
-            max_age=ctx.settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            secure=ctx.settings["COOKIE_SECURE"],
+            samesite=ctx.settings["COOKIE_SAMESITE"],
+            max_age=ctx.settings["ACCESS_TOKEN_EXPIRE_MINUTES"] * 60
         )
         
         return {"access_token": access_token, "token_type": "bearer"}
@@ -115,8 +116,8 @@ async def logout(
     response.delete_cookie(
         key="access_token",
         httponly=True,
-        secure=ctx.settings.COOKIE_SECURE,
-        samesite=ctx.settings.COOKIE_SAMESITE
+        secure=ctx.settings["COOKIE_SECURE"],
+        samesite=ctx.settings["COOKIE_SAMESITE"]
     )
     return {"message": "Successfully logged out"}
 
@@ -142,7 +143,7 @@ async def refresh_token(
     """
     try:
         # Get user ID from current token
-        user_id = ctx.current_user["id"]
+        user_id = ctx.user["id"]
         
         # Generate new token
         access_token = await auth_service.refresh_token(user_id, ctx)
@@ -152,9 +153,9 @@ async def refresh_token(
             key="access_token",
             value=f"Bearer {access_token}",
             httponly=True,
-            secure=ctx.settings.COOKIE_SECURE,
-            samesite=ctx.settings.COOKIE_SAMESITE,
-            max_age=ctx.settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            secure=ctx.settings["COOKIE_SECURE"],
+            samesite=ctx.settings["COOKIE_SAMESITE"],
+            max_age=ctx.settings["ACCESS_TOKEN_EXPIRE_MINUTES"] * 60
         )
         
         return {"access_token": access_token, "token_type": "bearer"}

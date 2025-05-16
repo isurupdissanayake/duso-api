@@ -92,6 +92,23 @@ async def get_auth_service(
     """
     return AuthService(user_repository)
 
+async def get_app_config_context(
+    settings: Settings = Depends(get_settings)
+) -> AsyncGenerator[AppContext, None]:
+    """
+    Get application configuration context.
+    This includes only the application settings, without user context.
+    
+    Args:
+        settings (Settings): Application settings from get_settings
+        
+    Returns:
+        AppConfigContext: Application configuration context
+    """
+    context = AppContext(settings=settings.model_dump())
+
+    yield context 
+
 async def get_app_context(
     user: dict = Depends(get_current_user),
     settings: Settings = Depends(get_settings)
@@ -109,6 +126,6 @@ async def get_app_context(
     """
     context = AppContext(
         user=user,
-        settings=settings
+        settings=settings.model_dump()
     )
     yield context 
