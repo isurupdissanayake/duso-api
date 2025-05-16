@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: docker/dev/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../:/app
+      - /app/__pycache__
+      - /app/app/__pycache__
+    env_file:
+      - ../../env/development.env
+    depends_on:
+      - mongodb
+    networks:
+      - duso-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - duso-network
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=duso_db
+
+  mongo-express:
+    image: mongo-express
+    container_name: duso_mongo_express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+    depends_on:
+      - mongodb
+    networks:
+      - duso-network
+
+networks:
+  duso-network:
+    driver: bridge
+
+volumes:
+  mongodb_data: 
